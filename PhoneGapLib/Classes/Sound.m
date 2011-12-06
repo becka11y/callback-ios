@@ -45,39 +45,43 @@
 // "Naked" resource paths are assumed to be from the www folder as its base
 - (NSURL*) urlForResource:(NSString*)resourcePath
 {
-	NSURL* resourceURL = [NSURL fileURLWithPath:resourcePath];
+	NSURL* resourceURL = nil;
+    NSString* filePath = nil;
 	
-	// attempt to find file path in www directory
-    NSString* filePath = [PhoneGapDelegate pathForResource:resourcePath];
-	
-	if (filePath == nil) {
-		// if it is a http url, use it
-		if ([resourcePath hasPrefix:HTTP_SCHEME_PREFIX]){
-			NSLog(@"Will use resource '%@' from the Internet.", resourcePath);
-			resourceURL = [NSURL URLWithString:resourcePath];
-		} else if ([resourcePath hasPrefix:DOCUMENTS_SCHEME_PREFIX]) {
-			NSLog(@"Will use resource '%@' from the documents folder.", resourcePath);
-			resourceURL = [NSURL URLWithString:resourcePath];
-			
-			NSString* recordingPath = [NSString stringWithFormat:@"%@/%@", [PhoneGapDelegate applicationDocumentsDirectory], [resourceURL host]];
-			NSLog(@"recordingPath = %@", recordingPath);
-			resourceURL = [NSURL fileURLWithPath:recordingPath];
-		} else { 
-            // try to access file
-            NSFileManager* fMgr = [[NSFileManager alloc] init];
-            if (![fMgr fileExistsAtPath:resourcePath]) {
-                resourceURL = nil;
-                NSLog(@"Unknown resource '%@'", resourcePath);
-            }
-            [fMgr release];
-		}
+    // first try to find HTTP:// or Documents:// resources
+    
+    if ([resourcePath hasPrefix:HTTP_SCHEME_PREFIX]){
+        // if it is a http url, use it
+        NSLog(@"Will use resource '%@' from the Internet.", resourcePath);
+        resourceURL = [NSURL URLWithString:resourcePath];
+    } else if ([resourcePath hasPrefix:DOCUMENTS_SCHEME_PREFIX]) {
+        filePath = [resourcePath stringByReplacingOccurrencesOfString:DOCUMENTS_SCHEME_PREFIX withString:[NSString stringWithFormat:@"%@/",[PhoneGapDelegate applicationDocumentsDirectory]]];
+       NSLog(@"Will use resource '%@' from the documents folder with path = %@", resourcePath, filePath);
+    } else {
+        // attempt to find file path in www directory
+        filePath = [PhoneGapDelegate pathForResource:resourcePath];
+        if (filePath != nil) {
+            NSLog(@"Found resource '%@' in the web folder.", filePath);
+        }else {
+            filePath = resourcePath;
+            NSLog(@"Will attempt to use file resource '%@'", filePath);
+            
+        }
+
     }
-	else {
-		NSLog(@"Found resource '%@' in the web folder.", filePath);
-		// it's a file url, use it
-		resourceURL = [NSURL fileURLWithPath:filePath];
-	}
-	
+    // check that file exists for all but HTTP_SHEME_PREFIX
+    if(filePath != nil) {
+        // try to access file
+        NSFileManager* fMgr = [[NSFileManager alloc] init];
+        if (![fMgr fileExistsAtPath:filePath]) {
+            resourceURL = nil;
+            NSLog(@"Unknown resource '%@'", resourcePath);
+        } else {
+            // it's a valid file url, use it
+            resourceURL = [NSURL fileURLWithPath:filePath];
+        }
+        [fMgr release];
+    }     
 	return resourceURL;
 }
 
